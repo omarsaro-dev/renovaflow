@@ -1,12 +1,11 @@
 // RenovaFlow — Prisma schema
-// SQLite for the demo/MVP. The model is intentionally portable to PostgreSQL.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

@@ -2,7 +2,7 @@
 
 Customer-facing construction project management for small contractors. Teams plan jobs, track tasks and budgets, share photo updates with customers, and collect approvals on change orders — all from one app.
 
-Built with **Next.js 14 (App Router)**, **Prisma + SQLite**, **NextAuth v5 (beta, JWT)**, **Zod**, and **Tailwind CSS**.
+Built with **Next.js 14 (App Router)**, **Prisma + PostgreSQL**, **NextAuth v5 (beta, JWT)**, **Zod**, and **Tailwind CSS**.
 
 ## Features
 
@@ -31,16 +31,22 @@ Built with **Next.js 14 (App Router)**, **Prisma + SQLite**, **NextAuth v5 (beta
 
 ## Getting started
 
+Requirements: Node 18+, and a PostgreSQL database (local install, or a hosted
+offering like **Neon**, **Supabase**, or **Vercel Postgres**). SQLite is no
+longer used — the app needs Postgres, including on Vercel.
+
 ```bash
-# 1. Install dependencies
+# 1. Install dependencies (also runs `prisma generate`)
 npm install
 
 # 2. Configure environment
-#    Copy .env.example to .env (or reuse existing .env)
-#    DATABASE_URL="file:./dev.db"  (SQLite)
+cp .env.example .env
+#    Set DATABASE_URL to your Postgres connection string, e.g.
+#    DATABASE_URL="postgresql://renovaflow:password@host:5432/renovaflow?sslmode=require"
+#    Set NEXTAUTH_SECRET (random string) and NEXTAUTH_URL
 
-# 3. Create the database schema
-npx prisma db push
+# 3. Apply the schema (uses prisma/migrations)
+npm run db:migrate-deploy
 
 # 4. (Optional) Load demo data
 npm run db:seed
@@ -50,6 +56,22 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The first registered account becomes the organization owner; it can then add team members and customers from the app.
+
+## Deploying to Vercel
+
+1. Push the repo to GitHub and import it in Vercel.
+2. Create a hosted Postgres database (Neon, Supabase, or Vercel Postgres).
+3. In **Vercel → Project → Settings → Environment Variables**, add:
+   - `DATABASE_URL` — your Postgres connection string
+   - `NEXTAUTH_SECRET` — a long random string
+   - `NEXTAUTH_URL` — your deployment URL (e.g. `https://renovaflow.vercel.app`)
+4. In **Vercel → Project → Settings → Build & Deployment**, the deploy uses
+   the `vercel-build` script automatically, which runs
+   `prisma migrate deploy && prisma generate && next build`. This applies
+   migrations to your database on each deploy.
+5. Deploy. After the first successful deploy, run the seed once:
+   `npx prisma db seed` locally against your remote `DATABASE_URL`, or use
+   `npm run db:seed` with the production connection string in `.env`.
 
 ## Demo accounts
 
@@ -67,12 +89,14 @@ After `npm run db:seed`:
 
 ```bash
 npm run dev            # start the dev server
-npm run build          # production build
+npm run build          # production build (runs `prisma generate`)
+npm run vercel-build   # Vercel build: migrate deploy + generate + next build
 npm run lint           # ESLint
 npm run db:generate    # (re)generate the Prisma client
-npm run db:push        # sync schema.prisma to the database
+npm run db:push        # sync schema.prisma to the database (dev)
 npm run db:seed        # load demo data (idempotent — wipes demo tables first)
-npm run db:migrate     # create/apply migrations
+npm run db:migrate     # create/apply migrations (dev)
+npm run db:migrate-deploy  # apply migrations (prod)
 npm run db:studio      # open Prisma Studio
 ```
 
@@ -81,6 +105,7 @@ npm run db:studio      # open Prisma Studio
 ```
 prisma/
   schema.prisma        # data model
+  migrations/          # SQL migrations (applied via prisma migrate deploy)
   seed.js              # demo seed (npm run db:seed)
 src/
   app/
@@ -110,8 +135,8 @@ src/
 - Every API route re-validates the session, organization, and resource scope —
   the UI never grants access on its own.
 - Passwords are hashed with bcrypt (`bcryptjs`, cost 12).
-- SQLite is used for local development/demo; the Prisma schema is portable to
-  PostgreSQL (`file:` → connection string).
+- PostgreSQL is the only supported database (SQLite was used early in the MVP
+  for local demos but is incompatible with Vercel's serverless filesystem).
 
 ## Tech notes
 
